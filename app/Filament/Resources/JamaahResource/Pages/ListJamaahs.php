@@ -2,9 +2,15 @@
 
 namespace App\Filament\Resources\JamaahResource\Pages;
 
-use App\Filament\Resources\JamaahResource;
 use Filament\Actions;
+use Actions\Pages\ExportAction;
 use Filament\Resources\Pages\ListRecords;
+use App\Filament\Resources\JamaahResource;
+use pxlrbt\FilamentExcel\Actions\Pages\ExportAction as PagesExportAction;
+// use pxlrbt\FilamentExcel\Actions\Tables\ExportAction as TablesExportAction;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
+use pxlrbt\FilamentExcel\Columns\Column;
+use pxlrbt\FilamentExcel\Exports\ExcelExport;
 
 class ListJamaahs extends ListRecords
 {
@@ -14,6 +20,8 @@ class ListJamaahs extends ListRecords
     {
         return [
             Actions\CreateAction::make(),
+            PagesExportAction::make('export')
+
         ];
     }
 }

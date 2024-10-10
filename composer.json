@@ -13,7 +13,10 @@
         "laravel-lang/common": "^6.4",
         "laravel-lang/locales": "^2.5",
         "laravel/framework": "^11.9",
-        "laravel/tinker": "^2.9"
+        "laravel/tinker": "^2.9",
+        "laravolt/indonesia": "^0.35.0",
+        "psr/simple-cache": "^2.0",
+        "pxlrbt/filament-excel": "^2.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

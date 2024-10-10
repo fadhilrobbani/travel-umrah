@@ -14,8 +14,12 @@ return new class extends Migration
         Schema::create('jamaahs', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
-            $table->bigInteger('nik');
+            $table->string('nik');
             $table->string('alamat');
+            $table->string('provinsi');
+            $table->string('kota');
+            $table->string('kecamatan');
+            $table->string('kelurahan');
             $table->string('tempat_lahir');
             $table->date('tanggal_lahir');
             $table->string('jenis_kelamin');

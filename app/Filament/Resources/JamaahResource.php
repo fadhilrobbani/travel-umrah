@@ -11,7 +11,9 @@ use Filament\Resources\Resource;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Forms\Components\DatePicker;
@@ -19,6 +21,7 @@ use Filament\Forms\Components\FileUpload;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Resources\JamaahResource\Pages;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use App\Filament\Resources\JamaahResource\RelationManagers;
 
 class JamaahResource extends Resource
@@ -48,16 +51,66 @@ class JamaahResource extends Resource
                         ->required(),
                     TextInput::make('nik')
                         ->label('NIK')
-                        ->integer()
+                        ->numeric()
                         ->length(16)
                         ->placeholder('NIK')
                         ->unique(ignorable: fn($record) => $record)
                         ->required(),
-                    TextInput::make('alamat')
+                    Textarea::make('alamat')
                         ->label('Alamat')
                         ->placeholder('Masukkan alamat')
-                        ->unique(ignorable: fn($record) => $record)
                         ->required(),
+
+                    Select::make('provinsi')
+                        ->label('Provinsi')
+                        ->options(collect(\Indonesia::allProvinces())->pluck('name', 'id')->toArray()) // Ambil data provinsi dari Indonesia package
+                        ->reactive() // Tambahkan reaktivitas untuk memengaruhi pilihan kota
+                        ->required()
+                        ->placeholder('Pilih Provinsi'),
+
+                    Select::make('kota')
+                        ->label('Kabupaten/Kota')
+                        ->options(function (callable $get) {
+                            // Ambil pilihan kota berdasarkan provinsi yang dipilih
+                            $selectedProvinsi = $get('provinsi'); // Mengambil nilai dari provinsi yang dipilih
+                            if ($selectedProvinsi) {
+                                // Ambil data kota dari package Indonesia berdasarkan provinsi
+                                return collect(\Indonesia::findProvince($selectedProvinsi)->cities)->pluck('name', 'id')->toArray();
+                            }
+                            return []; // Default kosong jika belum ada provinsi yang dipilih
+                        })
+                        ->reactive() // Reaktif untuk memperbarui kecamatan
+                        ->required()
+                        ->placeholder('Pilih Kabupaten/Kota'),
+
+                    Select::make('kecamatan')
+                        ->label('Kecamatan')
+                        ->options(function (callable $get) {
+                            // Ambil pilihan kecamatan berdasarkan kota yang dipilih
+                            $selectedKota = $get('kota'); // Mengambil nilai dari kota yang dipilih
+                            if ($selectedKota) {
+                                // Ambil data kecamatan dari package Indonesia berdasarkan kota
+                                return collect(\Indonesia::findCity($selectedKota)->districts)->pluck('name', 'id')->toArray();
+                            }
+                            return []; // Default kosong jika belum ada kota yang dipilih
+                        })
+                        ->reactive() // Reaktif untuk memperbarui kelurahan
+                        ->required()
+                        ->placeholder('Pilih Kecamatan'),
+
+                    Select::make('kelurahan')
+                        ->label('Desa/Kelurahan')
+                        ->options(function (callable $get) {
+                            // Ambil pilihan kelurahan berdasarkan kecamatan yang dipilih
+                            $selectedKecamatan = $get('kecamatan'); // Mengambil nilai dari kecamatan yang dipilih
+                            if ($selectedKecamatan) {
+                                // Ambil data kelurahan dari package Indonesia berdasarkan kecamatan
+                                return collect(\Indonesia::findDistrict($selectedKecamatan)->villages)->pluck('name', 'id')->toArray();
+                            }
+                            return []; // Default kosong jika belum ada kecamatan yang dipilih
+                        })
+                        ->required()
+                        ->placeholder('Pilih Desa/Kelurahan'),
                     DatePicker::make('tanggal_lahir')
                         ->required(),
                     TextInput::make('tempat_lahir')
@@ -148,6 +201,42 @@ class JamaahResource extends Resource
                     ->toggleable()
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('provinsi')
+                    ->label('Provinsi')
+                    ->toggleable()
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(function ($state) {
+                        // Ambil nama provinsi berdasarkan ID yang disimpan
+                        return \Indonesia::findProvince($state)?->name ?? 'Tidak ditemukan';
+                    }),
+                TextColumn::make('kota')
+                    ->label('Kota')
+                    ->toggleable()
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(function ($state) {
+                        // Ambil nama provinsi berdasarkan ID yang disimpan
+                        return \Indonesia::findCity($state)?->name ?? 'Tidak ditemukan';
+                    }),
+                TextColumn::make('kecamatan')
+                    ->label('Kota')
+                    ->toggleable()
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(function ($state) {
+                        // Ambil nama provinsi berdasarkan ID yang disimpan
+                        return \Indonesia::findDistrict($state)?->name ?? 'Tidak ditemukan';
+                    }),
+                TextColumn::make('kelurahan')
+                    ->label('Kota')
+                    ->toggleable()
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(function ($state) {
+                        // Ambil nama provinsi berdasarkan ID yang disimpan
+                        return \Indonesia::findVillage($state)?->name ?? 'Tidak ditemukan';
+                    }),
                 TextColumn::make('tempat_lahir')
                     ->label('Tempat Lahir')
                     ->toggleable()
@@ -220,8 +309,13 @@ class JamaahResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+                    ExportBulkAction::make()
                 ]),
-            ]);
+                // ExportBulkAction::make()
+            ])
+            ->recordUrl(
+                fn(Model $record): string => Pages\ViewJamaah::getUrl([$record->id]),
+            );;
     }
 
     public static function getRelations(): array
@@ -231,12 +325,20 @@ class JamaahResource extends Resource
         ];
     }
 
+    // public function getTableBulkActions()
+    // {
+    //     return  [
+    //         ExportBulkAction::make()
+    //     ];
+    // }
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListJamaahs::route('/'),
             'create' => Pages\CreateJamaah::route('/create'),
             'edit' => Pages\EditJamaah::route('/{record}/edit'),
+            'view' => Pages\ViewJamaah::route('/{record}/view'),
         ];
     }
 }
